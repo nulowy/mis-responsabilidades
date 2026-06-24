@@ -1,0 +1,16 @@
+
+{
+  "short_name": "Responsabilidades",
+  "name": "Mis Responsabilidades Diarias",
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#534AB7",
+  "background_color": "#f4f3f8",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/190/190411.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
