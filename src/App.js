@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 
@@ -29,7 +30,7 @@ const SECTIONS = [
 ];
 
 const ALL_IDS = SECTIONS.flatMap(s => s.tasks.map(t => t.id));
-const TOTAL = ALL_IDS.length + 4 + 1; // +4 agua +1 sueno
+const TOTAL = ALL_IDS.length + 4 + 1;
 const CATS = ["Comida","Transporte","Entretenimiento","Ropa","Salud","Educación","Otros"];
 const CAT_ICONS = {"Comida":"🍔","Transporte":"🚌","Entretenimiento":"🎮","Ropa":"👕","Salud":"💊","Educación":"📚","Otros":"📦"};
 const MOODS = [
@@ -49,13 +50,12 @@ function sleepOk(dormir, levantar) {
   if (!dormir || !levantar) return null;
   const [dh, dm] = dormir.split(":").map(Number);
   const dormirMin = dh * 60 + dm;
-  // Meta: dormir antes de las 22:00 (10pm), entre 20:00 y 23:59 cuenta como "se durmio esa noche"
-  const metaDormirMin = 22 * 60; // 10pm
+  const metaDormirMin = 22 * 60;
   const [lh, lm] = levantar.split(":").map(Number);
   const levantarMin = lh * 60 + lm;
-  const metaLevantarMin = 8 * 60; // 8am
-  const durmioATiempo = dormirMin <= metaDormirMin || dormirMin >= 23 * 60; // antes de 10pm (excluye madrugada)
-  const levantoATiempo = levantarMin <= metaLevantarMin + 30; // hasta 8:30am de margen
+  const metaLevantarMin = 8 * 60;
+  const durmioATiempo = dormirMin <= metaDormirMin || dormirMin >= 23 * 60;
+  const levantoATiempo = levantarMin <= metaLevantarMin + 30;
   return durmioATiempo && levantoATiempo;
 }
 
@@ -258,14 +258,20 @@ export default function App() {
 
   const bg = dark ? "#0f0f13" : "#f4f3f8";
   const surf = dark ? "#1a1a24" : "#fff";
-  const bdr = dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.08)";
+  const bdr = dark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.08)";
   const txt = dark ? "#e8e8f0" : "#1a1a2e";
-  const muted = dark ? "#7a7a95" : "#8888a8";
-  const accent = dark ? "#7f77dd" : "#534AB7";
+  const muted = dark ? "#9a9ab5" : "#8888a8";
+  const accent = dark ? "#9b93f0" : "#534AB7";
   const green = "#1D9E75";
   const cardDone = dark ? "#0d2a1e" : "#eafaf4";
-  const inputBg = dark ? "#2a2a3a" : "#f4f3f8";
-  const inputStyle = { width: "100%", padding: "10px 12px", background: inputBg, border: `1px solid ${bdr}`, borderRadius: 10, color: txt, fontSize: 14, fontFamily: "inherit", outline: "none" };
+  const inputBg = dark ? "#26263a" : "#f4f3f8";
+
+  const inputStyle = {
+    width: "100%", padding: "11px 12px", background: inputBg,
+    border: `1.5px solid ${bdr}`, borderRadius: 10, color: txt,
+    fontSize: 14, fontFamily: "inherit", outline: "none",
+    colorScheme: dark ? "dark" : "light"
+  };
   const btnStyle = (color) => ({ padding: "10px 16px", background: color, border: "none", borderRadius: 10, color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" });
 
   if (loading) return (
@@ -277,6 +283,19 @@ export default function App() {
 
   return (
     <div style={{ background: bg, minHeight: "100vh", fontFamily: "system-ui,sans-serif", transition: "background 0.2s" }}>
+      <style>{`
+        input[type="time"]::-webkit-calendar-picker-indicator {
+          filter: ${dark ? "invert(1)" : "none"};
+          cursor: pointer;
+        }
+        select option {
+          background: ${surf};
+          color: ${txt};
+        }
+        textarea::placeholder, input::placeholder {
+          color: ${muted};
+        }
+      `}</style>
       <div style={{ maxWidth: 480, margin: "0 auto", padding: "20px 16px 80px" }}>
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
@@ -289,21 +308,21 @@ export default function App() {
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             {synced && <span style={{ fontSize: 11, color: green, fontWeight: 500 }}>✓ Guardado</span>}
             {saving && <span style={{ fontSize: 11, color: muted }}>Guardando...</span>}
-            <button onClick={toggleDark} style={{ fontSize: 20, background: "none", border: `1px solid ${bdr}`, borderRadius: 10, padding: "6px 10px", cursor: "pointer" }}>
+            <button onClick={toggleDark} style={{ fontSize: 20, background: "none", border: `1.5px solid ${bdr}`, borderRadius: 10, padding: "6px 10px", cursor: "pointer" }}>
               {dark ? "☀️" : "🌙"}
             </button>
-            <button onClick={resetTareas} style={{ fontSize: 12, background: "none", border: `1px solid #E24B4A`, borderRadius: 10, padding: "6px 10px", cursor: "pointer", color: "#E24B4A", fontFamily: "inherit" }}>
+            <button onClick={resetTareas} style={{ fontSize: 12, background: "none", border: `1.5px solid #E24B4A`, borderRadius: 10, padding: "6px 10px", cursor: "pointer", color: "#E24B4A", fontFamily: "inherit" }}>
               Reiniciar
             </button>
           </div>
         </div>
 
-        <div style={{ display: "flex", background: surf, border: `1px solid ${bdr}`, borderRadius: 14, padding: 4, marginBottom: 20, gap: 4 }}>
+        <div style={{ display: "flex", background: surf, border: `1.5px solid ${bdr}`, borderRadius: 14, padding: 4, marginBottom: 20, gap: 4 }}>
           {[["tareas","📋 Tareas"],["finanzas","💰 Finanzas"],["diario","📝 Diario"]].map(([k,l]) => (
             <button key={k} onClick={() => setMainTab(k)}
               style={{ flex: 1, padding: "10px 0", fontSize: 13, fontWeight: 500, cursor: "pointer", border: "none", borderRadius: 10, fontFamily: "inherit", transition: "all 0.15s",
-                background: mainTab === k ? (dark ? "rgba(127,119,221,0.2)" : "#534AB7") : "transparent",
-                color: mainTab === k ? (dark ? "#AFA9EC" : "#fff") : muted }}>
+                background: mainTab === k ? (dark ? "rgba(155,147,240,0.2)" : "#534AB7") : "transparent",
+                color: mainTab === k ? (dark ? "#c4bdfa" : "#fff") : muted }}>
               {l}
             </button>
           ))}
@@ -311,11 +330,11 @@ export default function App() {
 
         {mainTab === "tareas" && (
           <>
-            <div style={{ display: "flex", background: surf, border: `1px solid ${bdr}`, borderRadius: 12, padding: 4, marginBottom: 20, gap: 4 }}>
+            <div style={{ display: "flex", background: surf, border: `1.5px solid ${bdr}`, borderRadius: 12, padding: 4, marginBottom: 20, gap: 4 }}>
               {[["hoy","Hoy"],["stats","Estadísticas"]].map(([k,l]) => (
                 <button key={k} onClick={() => setTaskTab(k)}
                   style={{ flex: 1, padding: "8px 0", fontSize: 13, fontWeight: 500, cursor: "pointer", border: "none", borderRadius: 9, fontFamily: "inherit", transition: "all 0.15s",
-                    background: taskTab === k ? (dark ? "rgba(127,119,221,0.15)" : "#eeedf9") : "transparent",
+                    background: taskTab === k ? (dark ? "rgba(155,147,240,0.18)" : "#eeedf9") : "transparent",
                     color: taskTab === k ? accent : muted }}>
                   {l}
                 </button>
@@ -324,12 +343,12 @@ export default function App() {
 
             {taskTab === "hoy" && (
               <>
-                <div style={{ background: surf, border: `1px solid ${bdr}`, borderRadius: 16, padding: 18, marginBottom: 20 }}>
+                <div style={{ background: surf, border: `1.5px solid ${bdr}`, borderRadius: 16, padding: 18, marginBottom: 20 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
                     <span style={{ fontSize: 14, color: muted }}>Progreso del día</span>
                     <span style={{ fontSize: 20, fontWeight: 700, color: pct === 100 ? green : accent }}>{pct}%</span>
                   </div>
-                  <div style={{ height: 10, background: dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.07)", borderRadius: 99, overflow: "hidden" }}>
+                  <div style={{ height: 10, background: dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.07)", borderRadius: 99, overflow: "hidden" }}>
                     <div style={{ height: "100%", width: pct + "%", background: pct === 100 ? `linear-gradient(90deg,${green},#5DCAA5)` : `linear-gradient(90deg,#534AB7,#7f77dd)`, borderRadius: 99, transition: "width 0.4s" }} />
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontSize: 12, color: muted }}>
@@ -345,7 +364,7 @@ export default function App() {
                       const checked = !!day.checked[t.id];
                       return (
                         <div key={t.id} onClick={() => toggle(t.id)}
-                          style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: checked ? cardDone : surf, border: `1px solid ${checked ? green : bdr}`, borderRadius: 12, cursor: "pointer", marginBottom: 6, transition: "all 0.15s", userSelect: "none" }}>
+                          style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: checked ? cardDone : surf, border: `1.5px solid ${checked ? green : bdr}`, borderRadius: 12, cursor: "pointer", marginBottom: 6, transition: "all 0.15s", userSelect: "none" }}>
                           <div style={{ width: 24, height: 24, borderRadius: "50%", flexShrink: 0, border: `2px solid ${checked ? green : bdr}`, background: checked ? green : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 13 }}>
                             {checked ? "✓" : ""}
                           </div>
@@ -359,14 +378,14 @@ export default function App() {
 
                 <div style={{ marginBottom: 24 }}>
                   <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: muted, marginBottom: 8 }}>💧 Agua del día</div>
-                  <div style={{ background: surf, border: `1px solid ${bdr}`, borderRadius: 16, padding: 18 }}>
+                  <div style={{ background: surf, border: `1.5px solid ${bdr}`, borderRadius: 16, padding: 18 }}>
                     <div style={{ display: "flex", gap: 10, justifyContent: "center", marginBottom: 10 }}>
                       {[1,2,3,4].map(n => {
                         const on = day.agua >= n;
                         return (
                           <div key={n} onClick={() => tapAgua(n)}
                             style={{ width: 58, height: 58, borderRadius: 14, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                              background: on ? (dark ? "rgba(29,158,117,0.2)" : "#E1F5EE") : (dark ? "rgba(255,255,255,0.04)" : "#f4f3f8"),
+                              background: on ? (dark ? "rgba(29,158,117,0.2)" : "#E1F5EE") : (dark ? "rgba(255,255,255,0.05)" : "#f4f3f8"),
                               border: `1.5px solid ${on ? green : bdr}`, transition: "all 0.15s", userSelect: "none", gap: 2 }}>
                             <span style={{ fontSize: 22 }}>{on ? "💧" : "○"}</span>
                             <span style={{ fontSize: 10, color: on ? green : muted }}>{n}</span>
@@ -380,14 +399,14 @@ export default function App() {
 
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: muted, marginBottom: 8 }}>😴 Horario de sueño</div>
-                  <div style={{ background: surf, border: `1px solid ${bdr}`, borderRadius: 16, padding: 18 }}>
-                    <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+                  <div style={{ background: surf, border: `1.5px solid ${bdr}`, borderRadius: 16, padding: 18 }}>
+                    <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 11, color: muted, marginBottom: 5 }}>Me dormí a las</div>
+                        <div style={{ fontSize: 11, color: muted, marginBottom: 6 }}>Me dormí a las</div>
                         <input type="time" style={inputStyle} value={sleepDormir} onChange={e => setSleepDormir(e.target.value)} />
                       </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 11, color: muted, marginBottom: 5 }}>Me levanté a las</div>
+                        <div style={{ fontSize: 11, color: muted, marginBottom: 6 }}>Me levanté a las</div>
                         <input type="time" style={inputStyle} value={sleepLevantar} onChange={e => setSleepLevantar(e.target.value)} />
                       </div>
                     </div>
@@ -406,14 +425,14 @@ export default function App() {
               <>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 20 }}>
                   {[["✅", completedDays, "Días completos"], ["🔥", meta.streak, "Racha actual"], ["📅", totalDays, "Días totales"]].map(([ic, v, l]) => (
-                    <div key={l} style={{ background: surf, border: `1px solid ${bdr}`, borderRadius: 14, padding: "14px 8px", textAlign: "center" }}>
+                    <div key={l} style={{ background: surf, border: `1.5px solid ${bdr}`, borderRadius: 14, padding: "14px 8px", textAlign: "center" }}>
                       <div style={{ fontSize: 22 }}>{ic}</div>
                       <div style={{ fontSize: 22, fontWeight: 700, color: txt, margin: "4px 0" }}>{v}</div>
                       <div style={{ fontSize: 11, color: muted }}>{l}</div>
                     </div>
                   ))}
                 </div>
-                <div style={{ background: surf, border: `1px solid ${bdr}`, borderRadius: 14, padding: "14px 16px", marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ background: surf, border: `1.5px solid ${bdr}`, borderRadius: 14, padding: "14px 16px", marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <span style={{ fontSize: 13, color: txt }}>😴 Días que dormiste bien</span>
                   <span style={{ fontSize: 16, fontWeight: 700, color: accent }}>{sleepDaysOk} / {totalDays}</span>
                 </div>
@@ -422,12 +441,12 @@ export default function App() {
                   const rate = Math.round((allDays.filter(([, d]) => d.checked && d.checked[t.id]).length / totalDays) * 100);
                   const col = rate >= 80 ? green : rate >= 50 ? "#BA7517" : "#E24B4A";
                   return (
-                    <div key={t.id} style={{ background: surf, border: `1px solid ${bdr}`, borderRadius: 12, padding: "10px 14px", marginBottom: 7 }}>
+                    <div key={t.id} style={{ background: surf, border: `1.5px solid ${bdr}`, borderRadius: 12, padding: "10px 14px", marginBottom: 7 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5, fontSize: 13 }}>
                         <span style={{ color: txt }}>{t.emoji} {t.label}</span>
                         <span style={{ color: col, fontWeight: 600 }}>{rate}%</span>
                       </div>
-                      <div style={{ height: 5, background: dark ? "rgba(255,255,255,0.06)" : "#e8e8f0", borderRadius: 99, overflow: "hidden" }}>
+                      <div style={{ height: 5, background: dark ? "rgba(255,255,255,0.08)" : "#e8e8f0", borderRadius: 99, overflow: "hidden" }}>
                         <div style={{ height: "100%", width: rate + "%", background: col, borderRadius: 99 }} />
                       </div>
                     </div>
@@ -440,11 +459,11 @@ export default function App() {
 
         {mainTab === "finanzas" && (
           <>
-            <div style={{ display: "flex", background: surf, border: `1px solid ${bdr}`, borderRadius: 12, padding: 4, marginBottom: 20, gap: 4 }}>
+            <div style={{ display: "flex", background: surf, border: `1.5px solid ${bdr}`, borderRadius: 12, padding: 4, marginBottom: 20, gap: 4 }}>
               {[["registro","Registrar"],["hoy","Hoy"],["mes","Este mes"],["prestamos","Préstamos"]].map(([k,l]) => (
                 <button key={k} onClick={() => setFinTab(k)}
                   style={{ flex: 1, padding: "7px 0", fontSize: 11, fontWeight: 500, cursor: "pointer", border: "none", borderRadius: 9, fontFamily: "inherit", transition: "all 0.15s",
-                    background: finTab === k ? (dark ? "rgba(127,119,221,0.15)" : "#eeedf9") : "transparent",
+                    background: finTab === k ? (dark ? "rgba(155,147,240,0.18)" : "#eeedf9") : "transparent",
                     color: finTab === k ? accent : muted }}>
                   {l}
                 </button>
@@ -452,13 +471,13 @@ export default function App() {
             </div>
 
             {finTab === "registro" && (
-              <div style={{ background: surf, border: `1px solid ${bdr}`, borderRadius: 16, padding: 20 }}>
+              <div style={{ background: surf, border: `1.5px solid ${bdr}`, borderRadius: 16, padding: 20 }}>
                 <div style={{ fontSize: 15, fontWeight: 600, color: txt, marginBottom: 16 }}>Nuevo movimiento</div>
                 <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
                   {[["gasto","💸 Gasto"],["ingreso","💵 Ingreso"],["prestamo","🤝 Préstamo"]].map(([k,l]) => (
                     <button key={k} onClick={() => setFinType(k)}
-                      style={{ flex: 1, padding: "8px 4px", fontSize: 12, fontWeight: 500, cursor: "pointer", border: `1px solid ${finType === k ? accent : bdr}`, borderRadius: 10, fontFamily: "inherit",
-                        background: finType === k ? (dark ? "rgba(127,119,221,0.15)" : "#eeedf9") : "transparent",
+                      style={{ flex: 1, padding: "8px 4px", fontSize: 12, fontWeight: 500, cursor: "pointer", border: `1.5px solid ${finType === k ? accent : bdr}`, borderRadius: 10, fontFamily: "inherit",
+                        background: finType === k ? (dark ? "rgba(155,147,240,0.18)" : "#eeedf9") : "transparent",
                         color: finType === k ? accent : muted }}>
                       {l}
                     </button>
@@ -489,7 +508,7 @@ export default function App() {
                     { label: "Ingresos hoy", val: todayMovs.filter(m => m.tipo === "ingreso").reduce((a,m) => a+m.monto,0), color: green, icon: "💵" },
                     { label: "Gastos hoy", val: todayMovs.filter(m => m.tipo === "gasto").reduce((a,m) => a+m.monto,0), color: "#E24B4A", icon: "💸" },
                   ].map(c => (
-                    <div key={c.label} style={{ background: surf, border: `1px solid ${bdr}`, borderRadius: 14, padding: "14px 12px" }}>
+                    <div key={c.label} style={{ background: surf, border: `1.5px solid ${bdr}`, borderRadius: 14, padding: "14px 12px" }}>
                       <div style={{ fontSize: 20, marginBottom: 4 }}>{c.icon}</div>
                       <div style={{ fontSize: 16, fontWeight: 700, color: c.color }}>{fmt(c.val)}</div>
                       <div style={{ fontSize: 11, color: muted }}>{c.label}</div>
@@ -500,7 +519,7 @@ export default function App() {
                   <div style={{ textAlign: "center", color: muted, fontSize: 14, padding: 40 }}>Sin movimientos hoy</div>
                 ) : (
                   todayMovs.slice().reverse().map(m => (
-                    <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: surf, border: `1px solid ${bdr}`, borderRadius: 12, marginBottom: 8 }}>
+                    <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: surf, border: `1.5px solid ${bdr}`, borderRadius: 12, marginBottom: 8 }}>
                       <span style={{ fontSize: 22 }}>{m.tipo === "ingreso" ? "💵" : m.tipo === "prestamo" ? "🤝" : CAT_ICONS[m.cat] || "📦"}</span>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 14, color: txt, fontWeight: 500 }}>{m.desc || m.cat}</div>
@@ -525,7 +544,7 @@ export default function App() {
                     { label: "Balance", val: balance, color: balance >= 0 ? green : "#E24B4A", icon: balance >= 0 ? "📈" : "📉" },
                     { label: "Prestado", val: totalPrestamos, color: accent, icon: "🤝" },
                   ].map(c => (
-                    <div key={c.label} style={{ background: surf, border: `1px solid ${bdr}`, borderRadius: 14, padding: "14px 12px" }}>
+                    <div key={c.label} style={{ background: surf, border: `1.5px solid ${bdr}`, borderRadius: 14, padding: "14px 12px" }}>
                       <div style={{ fontSize: 20, marginBottom: 4 }}>{c.icon}</div>
                       <div style={{ fontSize: 15, fontWeight: 700, color: c.color }}>{fmt(c.val)}</div>
                       <div style={{ fontSize: 11, color: muted }}>{c.label}</div>
@@ -533,18 +552,18 @@ export default function App() {
                   ))}
                 </div>
                 {savingGoal > 0 && (
-                  <div style={{ background: surf, border: `1px solid ${bdr}`, borderRadius: 14, padding: 16, marginBottom: 16, marginTop: 10 }}>
+                  <div style={{ background: surf, border: `1.5px solid ${bdr}`, borderRadius: 14, padding: 16, marginBottom: 16, marginTop: 10 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
                       <span style={{ fontSize: 13, color: muted }}>Meta de ahorro</span>
                       <span style={{ fontSize: 13, fontWeight: 600, color: balance >= savingGoal ? green : accent }}>{Math.round((balance / savingGoal) * 100)}%</span>
                     </div>
-                    <div style={{ height: 8, background: dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.07)", borderRadius: 99, overflow: "hidden" }}>
+                    <div style={{ height: 8, background: dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.07)", borderRadius: 99, overflow: "hidden" }}>
                       <div style={{ height: "100%", width: Math.min(100, Math.max(0, (balance / savingGoal) * 100)) + "%", background: `linear-gradient(90deg,#534AB7,#7f77dd)`, borderRadius: 99, transition: "width 0.4s" }} />
                     </div>
                     <div style={{ fontSize: 12, color: muted, marginTop: 6 }}>{fmt(balance)} de {fmt(savingGoal)}</div>
                   </div>
                 )}
-                <div style={{ background: surf, border: `1px solid ${bdr}`, borderRadius: 14, padding: 16, marginTop: 10 }}>
+                <div style={{ background: surf, border: `1.5px solid ${bdr}`, borderRadius: 14, padding: 16, marginTop: 10 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: txt, marginBottom: 12 }}>Meta de ahorro mensual</div>
                   <div style={{ display: "flex", gap: 8 }}>
                     <input style={{ ...inputStyle, flex: 1 }} type="number" placeholder="Ej: 200000" value={savingMeta} onChange={e => setSavingMeta(e.target.value)} />
@@ -557,12 +576,12 @@ export default function App() {
                     {gastoPorCat.map(c => {
                       const p = Math.round((c.total / totalGastos) * 100);
                       return (
-                        <div key={c.cat} style={{ background: surf, border: `1px solid ${bdr}`, borderRadius: 12, padding: "10px 14px", marginBottom: 7 }}>
+                        <div key={c.cat} style={{ background: surf, border: `1.5px solid ${bdr}`, borderRadius: 12, padding: "10px 14px", marginBottom: 7 }}>
                           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5, fontSize: 13 }}>
                             <span style={{ color: txt }}>{CAT_ICONS[c.cat]} {c.cat}</span>
                             <span style={{ color: txt, fontWeight: 600 }}>{fmt(c.total)} <span style={{ color: muted, fontWeight: 400 }}>({p}%)</span></span>
                           </div>
-                          <div style={{ height: 5, background: dark ? "rgba(255,255,255,0.06)" : "#e8e8f0", borderRadius: 99, overflow: "hidden" }}>
+                          <div style={{ height: 5, background: dark ? "rgba(255,255,255,0.08)" : "#e8e8f0", borderRadius: 99, overflow: "hidden" }}>
                             <div style={{ height: "100%", width: p + "%", background: "#E24B4A", borderRadius: 99 }} />
                           </div>
                         </div>
@@ -582,7 +601,7 @@ export default function App() {
                   allDays.flatMap(([k, d]) =>
                     (d.finanzas?.movimientos || []).filter(m => m.tipo === "prestamo").map(m => ({ ...m, dayKey: k }))
                   ).sort((a, b) => b.id - a.id).map(m => (
-                    <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: surf, border: `1px solid ${bdr}`, borderRadius: 12, marginBottom: 8 }}>
+                    <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: surf, border: `1.5px solid ${bdr}`, borderRadius: 12, marginBottom: 8 }}>
                       <span style={{ fontSize: 22 }}>🤝</span>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 14, color: txt, fontWeight: 500 }}>{m.quien || "Sin nombre"}</div>
@@ -599,11 +618,11 @@ export default function App() {
 
         {mainTab === "diario" && (
           <>
-            <div style={{ display: "flex", background: surf, border: `1px solid ${bdr}`, borderRadius: 12, padding: 4, marginBottom: 20, gap: 4 }}>
+            <div style={{ display: "flex", background: surf, border: `1.5px solid ${bdr}`, borderRadius: 12, padding: 4, marginBottom: 20, gap: 4 }}>
               {[["hoy","Escribir"],["historial","Historial"]].map(([k,l]) => (
                 <button key={k} onClick={() => setDiaryTab(k)}
                   style={{ flex: 1, padding: "8px 0", fontSize: 13, fontWeight: 500, cursor: "pointer", border: "none", borderRadius: 9, fontFamily: "inherit", transition: "all 0.15s",
-                    background: diaryTab === k ? (dark ? "rgba(127,119,221,0.15)" : "#eeedf9") : "transparent",
+                    background: diaryTab === k ? (dark ? "rgba(155,147,240,0.18)" : "#eeedf9") : "transparent",
                     color: diaryTab === k ? accent : muted }}>
                   {l}
                 </button>
@@ -611,13 +630,13 @@ export default function App() {
             </div>
 
             {diaryTab === "hoy" && (
-              <div style={{ background: surf, border: `1px solid ${bdr}`, borderRadius: 16, padding: 20 }}>
+              <div style={{ background: surf, border: `1.5px solid ${bdr}`, borderRadius: 16, padding: 20 }}>
                 <div style={{ fontSize: 15, fontWeight: 600, color: txt, marginBottom: 14 }}>¿Cómo te fue hoy?</div>
                 <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
                   {MOODS.map(m => (
                     <button key={m.id} onClick={() => setDiaryMood(m.id)}
-                      style={{ padding: "8px 12px", fontSize: 13, cursor: "pointer", borderRadius: 10, fontFamily: "inherit", border: `1px solid ${diaryMood === m.id ? accent : bdr}`,
-                        background: diaryMood === m.id ? (dark ? "rgba(127,119,221,0.15)" : "#eeedf9") : "transparent",
+                      style={{ padding: "8px 12px", fontSize: 13, cursor: "pointer", borderRadius: 10, fontFamily: "inherit", border: `1.5px solid ${diaryMood === m.id ? accent : bdr}`,
+                        background: diaryMood === m.id ? (dark ? "rgba(155,147,240,0.18)" : "#eeedf9") : "transparent",
                         color: diaryMood === m.id ? accent : muted }}>
                       {m.emoji} {m.label}
                     </button>
@@ -644,7 +663,7 @@ export default function App() {
                   diaryEntries.map(([fecha, d]) => {
                     const moodObj = MOODS.find(m => m.id === d.diario.mood);
                     return (
-                      <div key={fecha} style={{ background: surf, border: `1px solid ${bdr}`, borderRadius: 14, padding: 16, marginBottom: 10 }}>
+                      <div key={fecha} style={{ background: surf, border: `1.5px solid ${bdr}`, borderRadius: 14, padding: 16, marginBottom: 10 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
                           <span style={{ fontSize: 12, color: muted, fontWeight: 600 }}>{new Date(fecha + "T12:00:00").toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long" })}</span>
                           {moodObj && <span style={{ fontSize: 16 }}>{moodObj.emoji}</span>}
