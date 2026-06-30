@@ -29,13 +29,35 @@ const SECTIONS = [
 ];
 
 const ALL_IDS = SECTIONS.flatMap(s => s.tasks.map(t => t.id));
-const TOTAL = ALL_IDS.length + 4;
+const TOTAL = ALL_IDS.length + 4 + 1; // +4 agua +1 sueno
 const CATS = ["Comida","Transporte","Entretenimiento","Ropa","Salud","Educación","Otros"];
 const CAT_ICONS = {"Comida":"🍔","Transporte":"🚌","Entretenimiento":"🎮","Ropa":"👕","Salud":"💊","Educación":"📚","Otros":"📦"};
+const MOODS = [
+  { id: "feliz", emoji: "😊", label: "Feliz" },
+  { id: "motivado", emoji: "💪", label: "Motivado" },
+  { id: "tranquilo", emoji: "😌", label: "Tranquilo" },
+  { id: "cansado", emoji: "😴", label: "Cansado" },
+  { id: "triste", emoji: "😞", label: "Triste" },
+  { id: "estresado", emoji: "😤", label: "Estresado" },
+];
 
 function getKey() { return new Date().toISOString().slice(0, 10); }
 function getMonthKey() { return new Date().toISOString().slice(0, 7); }
 function fmt(n) { return new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(n); }
+
+function sleepOk(dormir, levantar) {
+  if (!dormir || !levantar) return null;
+  const [dh, dm] = dormir.split(":").map(Number);
+  const dormirMin = dh * 60 + dm;
+  // Meta: dormir antes de las 22:00 (10pm), entre 20:00 y 23:59 cuenta como "se durmio esa noche"
+  const metaDormirMin = 22 * 60; // 10pm
+  const [lh, lm] = levantar.split(":").map(Number);
+  const levantarMin = lh * 60 + lm;
+  const metaLevantarMin = 8 * 60; // 8am
+  const durmioATiempo = dormirMin <= metaDormirMin || dormirMin >= 23 * 60; // antes de 10pm (excluye madrugada)
+  const levantoATiempo = levantarMin <= metaLevantarMin + 30; // hasta 8:30am de margen
+  return durmioATiempo && levantoATiempo;
+}
 
 async function dbGet(key) {
   const { data } = await supabase.from("daily_data").select("*").eq("day_key", key);
@@ -57,6 +79,7 @@ export default function App() {
   const [mainTab, setMainTab] = useState("tareas");
   const [taskTab, setTaskTab] = useState("hoy");
   const [finTab, setFinTab] = useState("registro");
+  const [diaryTab, setDiaryTab] = useState("hoy");
   const [day, setDay] = useState({ checked: {}, agua: 0 });
   const [meta, setMeta] = useState({ streak: 0, lastDone: null, dark: false });
   const [allData, setAllData] = useState({});
@@ -71,6 +94,11 @@ export default function App() {
   const [finWho, setFinWho] = useState("");
   const [savingMeta, setSavingMeta] = useState("");
 
+  const [diaryText, setDiaryText] = useState("");
+  const [diaryMood, setDiaryMood] = useState("");
+  const [sleepDormir, setSleepDormir] = useState("");
+  const [sleepLevantar, setSleepLevantar] = useState("");
+
   const today = getKey();
   const monthKey = getMonthKey();
 
@@ -78,7 +106,13 @@ export default function App() {
     async function load() {
       setLoading(true);
       const [todayData, metaData, all] = await Promise.all([dbGet(today), dbGet("__meta__"), dbGetAll()]);
-      if (todayData) setDay(todayData);
+      if (todayData) {
+        setDay(todayData);
+        setDiaryText(todayData.diario?.texto || "");
+        setDiaryMood(todayData.diario?.mood || "");
+        setSleepDormir(todayData.sueno?.dormir || "");
+        setSleepLevantar(todayData.sueno?.levantar || "");
+      }
       if (metaData) { setMeta(metaData); setDark(metaData.dark || false); setSavingMeta(metaData.savingGoal || ""); }
       setAllData(all || {});
       setLoading(false);
@@ -92,8 +126,15 @@ export default function App() {
     setSaving(false); setSynced(true); setTimeout(() => setSynced(false), 2000);
   }
 
+  function calcDone(d) {
+    const tareasOk = ALL_IDS.filter(id => d.checked[id]).length;
+    const aguaOk = Math.min(d.agua || 0, 4);
+    const suenoOk = sleepOk(d.sueno?.dormir, d.sueno?.levantar) ? 1 : 0;
+    return tareasOk + aguaOk + suenoOk;
+  }
+
   function updateDay(newDay) {
-    const allChecked = ALL_IDS.every(id => newDay.checked[id]) && newDay.agua >= 4;
+    const allChecked = ALL_IDS.every(id => newDay.checked[id]) && newDay.agua >= 4 && sleepOk(newDay.sueno?.dormir, newDay.sueno?.levantar);
     let newMeta = { ...meta };
     if (allChecked && meta.lastDone !== today) {
       const y = new Date(); y.setDate(y.getDate() - 1);
@@ -103,11 +144,21 @@ export default function App() {
       setMeta(newMeta);
     }
     setDay(newDay);
+    const newAll = { ...allData, [today]: newDay };
+    setAllData(newAll);
     saveDay(newDay, newMeta);
   }
 
   function toggle(id) { updateDay({ ...day, checked: { ...day.checked, [id]: !day.checked[id] } }); }
   function tapAgua(n) { updateDay({ ...day, agua: day.agua === n ? n - 1 : n }); }
+
+  function saveSleep() {
+    updateDay({ ...day, sueno: { dormir: sleepDormir, levantar: sleepLevantar } });
+  }
+
+  function saveDiary() {
+    updateDay({ ...day, diario: { texto: diaryText, mood: diaryMood, fecha: today } });
+  }
 
   function toggleDark() {
     const nd = !dark; setDark(nd);
@@ -115,14 +166,20 @@ export default function App() {
   }
 
   async function resetTareas() {
-    if (!window.confirm("¿Seguro que quieres reiniciar todas las tareas y estadísticas?")) return;
+    if (!window.confirm("¿Seguro que quieres reiniciar todas las tareas y estadísticas? (El diario y finanzas no se borran)")) return;
     const keys = Object.keys(allData).filter(k => k !== "__meta__");
-    await Promise.all(keys.map(k => supabase.from("daily_data").delete().eq("day_key", k)));
+    await Promise.all(keys.map(async k => {
+      const d = allData[k];
+      const kept = { finanzas: d.finanzas, diario: d.diario };
+      await dbSet(k, kept);
+    }));
     const newMeta = { ...meta, streak: 0, lastDone: null };
     await dbSet("__meta__", newMeta);
     setDay({ checked: {}, agua: 0 });
+    setSleepDormir(""); setSleepLevantar("");
     setMeta(newMeta);
-    setAllData({});
+    const all = await dbGetAll();
+    setAllData(all);
     setSynced(true); setTimeout(() => setSynced(false), 2000);
   }
 
@@ -154,11 +211,39 @@ export default function App() {
     setSynced(true); setTimeout(() => setSynced(false), 2000);
   }
 
-  const done = ALL_IDS.filter(id => day.checked[id]).length + Math.min(day.agua, 4);
+  function exportarDiario() {
+    const allDaysSorted = Object.entries(allData).filter(([k]) => k !== "__meta__" && k.match(/^\d{4}-\d{2}-\d{2}$/)).sort(([a], [b]) => a.localeCompare(b));
+    let texto = "MI DIARIO PERSONAL\n";
+    texto += "Generado el " + new Date().toLocaleDateString("es-CO") + "\n";
+    texto += "=".repeat(40) + "\n\n";
+    allDaysSorted.forEach(([fecha, d]) => {
+      if (d.diario && d.diario.texto) {
+        const moodObj = MOODS.find(m => m.id === d.diario.mood);
+        texto += `📅 ${fecha} ${moodObj ? moodObj.emoji + " " + moodObj.label : ""}\n`;
+        texto += d.diario.texto + "\n\n";
+      }
+    });
+    texto += "=".repeat(40) + "\n";
+    texto += "RESUMEN DE HÁBITOS\n";
+    texto += `Racha actual: ${meta.streak} días\n`;
+    const totalDays = allDaysSorted.length || 1;
+    const completedDays = allDaysSorted.filter(([, d]) => ALL_IDS.every(id => d.checked && d.checked[id]) && d.agua >= 4).length;
+    texto += `Días completos: ${completedDays} de ${totalDays}\n`;
+
+    const blob = new Blob([texto], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `mi-diario-${today}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const done = calcDone(day);
   const pct = Math.round((done / TOTAL) * 100);
   const allDays = Object.entries(allData).filter(([k]) => k !== "__meta__");
   const totalDays = Math.max(allDays.length, 1);
-  const completedDays = allDays.filter(([, d]) => ALL_IDS.every(id => d.checked && d.checked[id]) && d.agua >= 4).length;
+  const completedDays = allDays.filter(([, d]) => ALL_IDS.every(id => d.checked && d.checked[id]) && d.agua >= 4 && sleepOk(d.sueno?.dormir, d.sueno?.levantar)).length;
+  const sleepDaysOk = allDays.filter(([, d]) => sleepOk(d.sueno?.dormir, d.sueno?.levantar)).length;
 
   const monthMovs = allDays.filter(([k]) => k.startsWith(monthKey)).flatMap(([, d]) => (d.finanzas?.movimientos || []));
   const totalIngresos = monthMovs.filter(m => m.tipo === "ingreso").reduce((a, m) => a + m.monto, 0);
@@ -168,6 +253,8 @@ export default function App() {
   const savingGoal = meta.savingGoal || 0;
   const gastoPorCat = CATS.map(cat => ({ cat, total: monthMovs.filter(m => m.tipo === "gasto" && m.cat === cat).reduce((a, m) => a + m.monto, 0) })).filter(c => c.total > 0).sort((a, b) => b.total - a.total);
   const todayMovs = ((allData[today] || {}).finanzas?.movimientos) || [];
+
+  const diaryEntries = allDays.filter(([, d]) => d.diario && d.diario.texto).sort(([a], [b]) => b.localeCompare(a));
 
   const bg = dark ? "#0f0f13" : "#f4f3f8";
   const surf = dark ? "#1a1a24" : "#fff";
@@ -212,9 +299,9 @@ export default function App() {
         </div>
 
         <div style={{ display: "flex", background: surf, border: `1px solid ${bdr}`, borderRadius: 14, padding: 4, marginBottom: 20, gap: 4 }}>
-          {[["tareas","📋 Tareas"],["finanzas","💰 Finanzas"]].map(([k,l]) => (
+          {[["tareas","📋 Tareas"],["finanzas","💰 Finanzas"],["diario","📝 Diario"]].map(([k,l]) => (
             <button key={k} onClick={() => setMainTab(k)}
-              style={{ flex: 1, padding: "10px 0", fontSize: 14, fontWeight: 500, cursor: "pointer", border: "none", borderRadius: 10, fontFamily: "inherit", transition: "all 0.15s",
+              style={{ flex: 1, padding: "10px 0", fontSize: 13, fontWeight: 500, cursor: "pointer", border: "none", borderRadius: 10, fontFamily: "inherit", transition: "all 0.15s",
                 background: mainTab === k ? (dark ? "rgba(127,119,221,0.2)" : "#534AB7") : "transparent",
                 color: mainTab === k ? (dark ? "#AFA9EC" : "#fff") : muted }}>
               {l}
@@ -270,7 +357,7 @@ export default function App() {
                   </div>
                 ))}
 
-                <div>
+                <div style={{ marginBottom: 24 }}>
                   <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: muted, marginBottom: 8 }}>💧 Agua del día</div>
                   <div style={{ background: surf, border: `1px solid ${bdr}`, borderRadius: 16, padding: 18 }}>
                     <div style={{ display: "flex", gap: 10, justifyContent: "center", marginBottom: 10 }}>
@@ -290,6 +377,28 @@ export default function App() {
                     <div style={{ textAlign: "center", fontSize: 13, color: muted }}>{day.agua} de 4 tomas completadas</div>
                   </div>
                 </div>
+
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: muted, marginBottom: 8 }}>😴 Horario de sueño</div>
+                  <div style={{ background: surf, border: `1px solid ${bdr}`, borderRadius: 16, padding: 18 }}>
+                    <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 11, color: muted, marginBottom: 5 }}>Me dormí a las</div>
+                        <input type="time" style={inputStyle} value={sleepDormir} onChange={e => setSleepDormir(e.target.value)} />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 11, color: muted, marginBottom: 5 }}>Me levanté a las</div>
+                        <input type="time" style={inputStyle} value={sleepLevantar} onChange={e => setSleepLevantar(e.target.value)} />
+                      </div>
+                    </div>
+                    <button onClick={saveSleep} style={{ ...btnStyle(accent), width: "100%", marginBottom: 10 }}>Guardar horario</button>
+                    {day.sueno?.dormir && day.sueno?.levantar && (
+                      <div style={{ textAlign: "center", fontSize: 13, fontWeight: 600, color: sleepOk(day.sueno.dormir, day.sueno.levantar) ? green : "#E24B4A" }}>
+                        {sleepOk(day.sueno.dormir, day.sueno.levantar) ? "✅ Cumpliste tu meta de sueño" : "❌ Fuera de tu horario meta (10pm - 8am)"}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </>
             )}
 
@@ -303,6 +412,10 @@ export default function App() {
                       <div style={{ fontSize: 11, color: muted }}>{l}</div>
                     </div>
                   ))}
+                </div>
+                <div style={{ background: surf, border: `1px solid ${bdr}`, borderRadius: 14, padding: "14px 16px", marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 13, color: txt }}>😴 Días que dormiste bien</span>
+                  <span style={{ fontSize: 16, fontWeight: 700, color: accent }}>{sleepDaysOk} / {totalDays}</span>
                 </div>
                 <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: muted, marginBottom: 10 }}>Completado por tarea</div>
                 {SECTIONS.flatMap(s => s.tasks).map(t => {
@@ -478,6 +591,68 @@ export default function App() {
                       <div style={{ fontSize: 14, fontWeight: 700, color: accent }}>{fmt(m.monto)}</div>
                     </div>
                   ))
+                )}
+              </>
+            )}
+          </>
+        )}
+
+        {mainTab === "diario" && (
+          <>
+            <div style={{ display: "flex", background: surf, border: `1px solid ${bdr}`, borderRadius: 12, padding: 4, marginBottom: 20, gap: 4 }}>
+              {[["hoy","Escribir"],["historial","Historial"]].map(([k,l]) => (
+                <button key={k} onClick={() => setDiaryTab(k)}
+                  style={{ flex: 1, padding: "8px 0", fontSize: 13, fontWeight: 500, cursor: "pointer", border: "none", borderRadius: 9, fontFamily: "inherit", transition: "all 0.15s",
+                    background: diaryTab === k ? (dark ? "rgba(127,119,221,0.15)" : "#eeedf9") : "transparent",
+                    color: diaryTab === k ? accent : muted }}>
+                  {l}
+                </button>
+              ))}
+            </div>
+
+            {diaryTab === "hoy" && (
+              <div style={{ background: surf, border: `1px solid ${bdr}`, borderRadius: 16, padding: 20 }}>
+                <div style={{ fontSize: 15, fontWeight: 600, color: txt, marginBottom: 14 }}>¿Cómo te fue hoy?</div>
+                <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
+                  {MOODS.map(m => (
+                    <button key={m.id} onClick={() => setDiaryMood(m.id)}
+                      style={{ padding: "8px 12px", fontSize: 13, cursor: "pointer", borderRadius: 10, fontFamily: "inherit", border: `1px solid ${diaryMood === m.id ? accent : bdr}`,
+                        background: diaryMood === m.id ? (dark ? "rgba(127,119,221,0.15)" : "#eeedf9") : "transparent",
+                        color: diaryMood === m.id ? accent : muted }}>
+                      {m.emoji} {m.label}
+                    </button>
+                  ))}
+                </div>
+                <textarea
+                  value={diaryText}
+                  onChange={e => setDiaryText(e.target.value)}
+                  placeholder="Escribe libremente cómo te fue, qué lograste, qué sentiste..."
+                  style={{ ...inputStyle, minHeight: 160, resize: "vertical", lineHeight: 1.5 }}
+                />
+                <button onClick={saveDiary} style={{ ...btnStyle(accent), width: "100%", marginTop: 12 }}>Guardar entrada</button>
+              </div>
+            )}
+
+            {diaryTab === "historial" && (
+              <>
+                <button onClick={exportarDiario} style={{ ...btnStyle(green), width: "100%", marginBottom: 16 }}>
+                  ⬇️ Exportar diario completo (.txt)
+                </button>
+                {diaryEntries.length === 0 ? (
+                  <div style={{ textAlign: "center", color: muted, fontSize: 14, padding: 40 }}>Aún no tienes entradas</div>
+                ) : (
+                  diaryEntries.map(([fecha, d]) => {
+                    const moodObj = MOODS.find(m => m.id === d.diario.mood);
+                    return (
+                      <div key={fecha} style={{ background: surf, border: `1px solid ${bdr}`, borderRadius: 14, padding: 16, marginBottom: 10 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                          <span style={{ fontSize: 12, color: muted, fontWeight: 600 }}>{new Date(fecha + "T12:00:00").toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long" })}</span>
+                          {moodObj && <span style={{ fontSize: 16 }}>{moodObj.emoji}</span>}
+                        </div>
+                        <div style={{ fontSize: 14, color: txt, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{d.diario.texto}</div>
+                      </div>
+                    );
+                  })
                 )}
               </>
             )}
