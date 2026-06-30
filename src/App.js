@@ -64,7 +64,6 @@ export default function App() {
   const [saving, setSaving] = useState(false);
   const [synced, setSynced] = useState(false);
 
-  // Finance form
   const [finType, setFinType] = useState("gasto");
   const [finAmount, setFinAmount] = useState("");
   const [finDesc, setFinDesc] = useState("");
@@ -87,12 +86,9 @@ export default function App() {
     load();
   }, []);
 
-  async function saveDay(newDay, newMeta, newAll) {
+  async function saveDay(newDay, newMeta) {
     setSaving(true);
-    const m = newMeta || meta;
-    const a = newAll || allData;
-    await Promise.all([dbSet(today, newDay), dbSet("__meta__", m)]);
-    setAllData(a);
+    await Promise.all([dbSet(today, newDay), dbSet("__meta__", newMeta || meta)]);
     setSaving(false); setSynced(true); setTimeout(() => setSynced(false), 2000);
   }
 
@@ -112,30 +108,39 @@ export default function App() {
 
   function toggle(id) { updateDay({ ...day, checked: { ...day.checked, [id]: !day.checked[id] } }); }
   function tapAgua(n) { updateDay({ ...day, agua: day.agua === n ? n - 1 : n }); }
-  function toggleDark() { const nd = !dark; setDark(nd); const nm = { ...meta, dark: nd }; setMeta(nm); dbSet("__meta__", nm); }
 
-  // Finance helpers
-  function getTodayFin() {
-    const d = allData[today] || {};
-    return d.finanzas || { movimientos: [], prestamos: [] };
+  function toggleDark() {
+    const nd = !dark; setDark(nd);
+    const nm = { ...meta, dark: nd }; setMeta(nm); dbSet("__meta__", nm);
+  }
+
+  async function resetTareas() {
+    if (!window.confirm("¿Seguro que quieres reiniciar todas las tareas y estadísticas?")) return;
+    const keys = Object.keys(allData).filter(k => k !== "__meta__");
+    await Promise.all(keys.map(k => supabase.from("daily_data").delete().eq("day_key", k)));
+    const newMeta = { ...meta, streak: 0, lastDone: null };
+    await dbSet("__meta__", newMeta);
+    setDay({ checked: {}, agua: 0 });
+    setMeta(newMeta);
+    setAllData({});
+    setSynced(true); setTimeout(() => setSynced(false), 2000);
   }
 
   async function addMovimiento() {
     if (!finAmount || isNaN(Number(finAmount))) return;
-    const fin = getTodayFin();
+    const fin = (allData[today] || {}).finanzas || { movimientos: [] };
     const mov = { id: Date.now(), tipo: finType, monto: Number(finAmount), desc: finDesc, cat: finType === "gasto" ? finCat : "Ingreso", quien: finType === "prestamo" ? finWho : "", fecha: today };
     const newFin = { ...fin, movimientos: [...fin.movimientos, mov] };
     const newDay = { ...day, finanzas: newFin };
     const newAll = { ...allData, [today]: { ...(allData[today] || {}), finanzas: newFin } };
-    setDay(newDay);
-    setAllData(newAll);
+    setDay(newDay); setAllData(newAll);
     await dbSet(today, newDay);
     setSynced(true); setTimeout(() => setSynced(false), 2000);
     setFinAmount(""); setFinDesc(""); setFinWho("");
   }
 
   async function deleteMovimiento(id) {
-    const fin = getTodayFin();
+    const fin = (allData[today] || {}).finanzas || { movimientos: [] };
     const newFin = { ...fin, movimientos: fin.movimientos.filter(m => m.id !== id) };
     const newDay = { ...day, finanzas: newFin };
     const newAll = { ...allData, [today]: { ...(allData[today] || {}), finanzas: newFin } };
@@ -149,31 +154,21 @@ export default function App() {
     setSynced(true); setTimeout(() => setSynced(false), 2000);
   }
 
-  // Stats
   const done = ALL_IDS.filter(id => day.checked[id]).length + Math.min(day.agua, 4);
   const pct = Math.round((done / TOTAL) * 100);
   const allDays = Object.entries(allData).filter(([k]) => k !== "__meta__");
   const totalDays = Math.max(allDays.length, 1);
   const completedDays = allDays.filter(([, d]) => ALL_IDS.every(id => d.checked && d.checked[id]) && d.agua >= 4).length;
 
-  // Finance stats for current month
-  const monthMovs = allDays
-    .filter(([k]) => k.startsWith(monthKey))
-    .flatMap(([, d]) => (d.finanzas?.movimientos || []));
+  const monthMovs = allDays.filter(([k]) => k.startsWith(monthKey)).flatMap(([, d]) => (d.finanzas?.movimientos || []));
   const totalIngresos = monthMovs.filter(m => m.tipo === "ingreso").reduce((a, m) => a + m.monto, 0);
   const totalGastos = monthMovs.filter(m => m.tipo === "gasto").reduce((a, m) => a + m.monto, 0);
   const totalPrestamos = monthMovs.filter(m => m.tipo === "prestamo").reduce((a, m) => a + m.monto, 0);
   const balance = totalIngresos - totalGastos;
   const savingGoal = meta.savingGoal || 0;
+  const gastoPorCat = CATS.map(cat => ({ cat, total: monthMovs.filter(m => m.tipo === "gasto" && m.cat === cat).reduce((a, m) => a + m.monto, 0) })).filter(c => c.total > 0).sort((a, b) => b.total - a.total);
+  const todayMovs = ((allData[today] || {}).finanzas?.movimientos) || [];
 
-  const gastoPorCat = CATS.map(cat => ({
-    cat, total: monthMovs.filter(m => m.tipo === "gasto" && m.cat === cat).reduce((a, m) => a + m.monto, 0)
-  })).filter(c => c.total > 0).sort((a, b) => b.total - a.total);
-
-  const todayFin = getTodayFin();
-  const todayMovs = todayFin.movimientos || [];
-
-  // Colors
   const bg = dark ? "#0f0f13" : "#f4f3f8";
   const surf = dark ? "#1a1a24" : "#fff";
   const bdr = dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.08)";
@@ -183,7 +178,6 @@ export default function App() {
   const green = "#1D9E75";
   const cardDone = dark ? "#0d2a1e" : "#eafaf4";
   const inputBg = dark ? "#2a2a3a" : "#f4f3f8";
-
   const inputStyle = { width: "100%", padding: "10px 12px", background: inputBg, border: `1px solid ${bdr}`, borderRadius: 10, color: txt, fontSize: 14, fontFamily: "inherit", outline: "none" };
   const btnStyle = (color) => ({ padding: "10px 16px", background: color, border: "none", borderRadius: 10, color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" });
 
@@ -198,7 +192,6 @@ export default function App() {
     <div style={{ background: bg, minHeight: "100vh", fontFamily: "system-ui,sans-serif", transition: "background 0.2s" }}>
       <div style={{ maxWidth: 480, margin: "0 auto", padding: "20px 16px 80px" }}>
 
-        {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <div>
             <div style={{ fontSize: 20, fontWeight: 600, color: txt }}>Mi App Personal</div>
@@ -212,10 +205,12 @@ export default function App() {
             <button onClick={toggleDark} style={{ fontSize: 20, background: "none", border: `1px solid ${bdr}`, borderRadius: 10, padding: "6px 10px", cursor: "pointer" }}>
               {dark ? "☀️" : "🌙"}
             </button>
+            <button onClick={resetTareas} style={{ fontSize: 12, background: "none", border: `1px solid #E24B4A`, borderRadius: 10, padding: "6px 10px", cursor: "pointer", color: "#E24B4A", fontFamily: "inherit" }}>
+              Reiniciar
+            </button>
           </div>
         </div>
 
-        {/* Main tabs */}
         <div style={{ display: "flex", background: surf, border: `1px solid ${bdr}`, borderRadius: 14, padding: 4, marginBottom: 20, gap: 4 }}>
           {[["tareas","📋 Tareas"],["finanzas","💰 Finanzas"]].map(([k,l]) => (
             <button key={k} onClick={() => setMainTab(k)}
@@ -227,7 +222,6 @@ export default function App() {
           ))}
         </div>
 
-        {/* ===== TAREAS ===== */}
         {mainTab === "tareas" && (
           <>
             <div style={{ display: "flex", background: surf, border: `1px solid ${bdr}`, borderRadius: 12, padding: 4, marginBottom: 20, gap: 4 }}>
@@ -331,7 +325,6 @@ export default function App() {
           </>
         )}
 
-        {/* ===== FINANZAS ===== */}
         {mainTab === "finanzas" && (
           <>
             <div style={{ display: "flex", background: surf, border: `1px solid ${bdr}`, borderRadius: 12, padding: 4, marginBottom: 20, gap: 4 }}>
@@ -345,11 +338,9 @@ export default function App() {
               ))}
             </div>
 
-            {/* REGISTRAR */}
             {finTab === "registro" && (
               <div style={{ background: surf, border: `1px solid ${bdr}`, borderRadius: 16, padding: 20 }}>
                 <div style={{ fontSize: 15, fontWeight: 600, color: txt, marginBottom: 16 }}>Nuevo movimiento</div>
-
                 <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
                   {[["gasto","💸 Gasto"],["ingreso","💵 Ingreso"],["prestamo","🤝 Préstamo"]].map(([k,l]) => (
                     <button key={k} onClick={() => setFinType(k)}
@@ -360,7 +351,6 @@ export default function App() {
                     </button>
                   ))}
                 </div>
-
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   <input style={inputStyle} type="number" placeholder="Monto en COP (ej: 5000)" value={finAmount} onChange={e => setFinAmount(e.target.value)} />
                   <input style={inputStyle} type="text" placeholder="Descripción (ej: Almuerzo)" value={finDesc} onChange={e => setFinDesc(e.target.value)} />
@@ -379,7 +369,6 @@ export default function App() {
               </div>
             )}
 
-            {/* HOY */}
             {finTab === "hoy" && (
               <>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
@@ -394,7 +383,6 @@ export default function App() {
                     </div>
                   ))}
                 </div>
-
                 {todayMovs.length === 0 ? (
                   <div style={{ textAlign: "center", color: muted, fontSize: 14, padding: 40 }}>Sin movimientos hoy</div>
                 ) : (
@@ -415,7 +403,6 @@ export default function App() {
               </>
             )}
 
-            {/* MES */}
             {finTab === "mes" && (
               <>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
@@ -432,7 +419,6 @@ export default function App() {
                     </div>
                   ))}
                 </div>
-
                 {savingGoal > 0 && (
                   <div style={{ background: surf, border: `1px solid ${bdr}`, borderRadius: 14, padding: 16, marginBottom: 16, marginTop: 10 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
@@ -445,7 +431,6 @@ export default function App() {
                     <div style={{ fontSize: 12, color: muted, marginTop: 6 }}>{fmt(balance)} de {fmt(savingGoal)}</div>
                   </div>
                 )}
-
                 <div style={{ background: surf, border: `1px solid ${bdr}`, borderRadius: 14, padding: 16, marginTop: 10 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: txt, marginBottom: 12 }}>Meta de ahorro mensual</div>
                   <div style={{ display: "flex", gap: 8 }}>
@@ -453,20 +438,19 @@ export default function App() {
                     <button onClick={saveSavingGoal} style={btnStyle(green)}>Guardar</button>
                   </div>
                 </div>
-
                 {gastoPorCat.length > 0 && (
                   <div style={{ marginTop: 16 }}>
                     <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: muted, marginBottom: 10 }}>Gastos por categoría</div>
                     {gastoPorCat.map(c => {
-                      const pct = Math.round((c.total / totalGastos) * 100);
+                      const p = Math.round((c.total / totalGastos) * 100);
                       return (
                         <div key={c.cat} style={{ background: surf, border: `1px solid ${bdr}`, borderRadius: 12, padding: "10px 14px", marginBottom: 7 }}>
                           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5, fontSize: 13 }}>
                             <span style={{ color: txt }}>{CAT_ICONS[c.cat]} {c.cat}</span>
-                            <span style={{ color: txt, fontWeight: 600 }}>{fmt(c.total)} <span style={{ color: muted, fontWeight: 400 }}>({pct}%)</span></span>
+                            <span style={{ color: txt, fontWeight: 600 }}>{fmt(c.total)} <span style={{ color: muted, fontWeight: 400 }}>({p}%)</span></span>
                           </div>
                           <div style={{ height: 5, background: dark ? "rgba(255,255,255,0.06)" : "#e8e8f0", borderRadius: 99, overflow: "hidden" }}>
-                            <div style={{ height: "100%", width: pct + "%", background: "#E24B4A", borderRadius: 99 }} />
+                            <div style={{ height: "100%", width: p + "%", background: "#E24B4A", borderRadius: 99 }} />
                           </div>
                         </div>
                       );
@@ -476,7 +460,6 @@ export default function App() {
               </>
             )}
 
-            {/* PRÉSTAMOS */}
             {finTab === "prestamos" && (
               <>
                 <div style={{ fontSize: 13, color: muted, marginBottom: 16 }}>Todos los préstamos registrados</div>
